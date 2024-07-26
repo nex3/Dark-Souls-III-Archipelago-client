@@ -6,11 +6,12 @@
 
 // Constant values used to represent different equip slots in the DS3 inventory.
 enum class EquipSlot : uint32_t {
+	leftHand1 = 0x00,
 	rightHand1 = 0x01,
 	head = 0x0C,
 	body = 0x0D,
 	arms = 0x0E,
-	legs = 0x0E,
+	legs = 0x0F,
 	ring1 = 0x11,
 	ring2 = 0x12,
 	ring3 = 0x13,

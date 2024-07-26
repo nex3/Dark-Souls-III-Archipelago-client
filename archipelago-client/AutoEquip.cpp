@@ -62,6 +62,7 @@ std::optional<EquipSlot> CAutoEquip::SortItem(uint32_t dItemID) {
 		case ItemType::weapon: {
 			if ((dItemID >> 0x10) == 6) return std::nullopt; //Don't equip ammo
 			if ((dItemID & 0xFF000000) << 4 != 0x10000000) return EquipSlot::rightHand1;
+			else return EquipSlot::leftHand1; //Shields equip	
 			break;
 		};
 		case ItemType::protector: {
