@@ -59,14 +59,13 @@ jobs:
     - uses: actions/checkout@v4
       with:
         repository: nex3/SoulsRandomizers
-        ref: archipelago-server
+        ref: unmissable-quests
         token: ${{ secrets.GH_TOKEN }}
         path: SoulsRandomizers
     - uses: actions/checkout@v4
       with:
-        repository: thefifthmatt/SoulsIds
-        # Later versions expect AC6 stuff from SoulsFormats which hasn't been published yet.
-        ref: 986346a705799f528d620c19ca384e21cb008b54
+        repository: nex3/SoulsIds
+        ref: event-id
         path: SoulsIds
     - uses: actions/checkout@v4
       with:
@@ -100,17 +99,17 @@ jobs:
       with:
         repository: nex3/Archipelago
         token: ${{ secrets.GH_TOKEN }}
-        ref: ds3-stable
+        ref: unmissable-quests-stable
         fetch-depth: 0
 
     - run: git config --global user.email "nattlebot@nex-3.com"
     - run: git config --global user.name "Nattlebot Robobaum"
 
-    - run: git merge --no-edit origin/ds3-beta
-    - run: git push origin ds3-stable
+    - run: git merge --no-edit origin/unmissable-quests
+    - run: git push origin unmissable-quests-stable
   
     - run: git checkout 0.5.0
-    - run: git checkout ds3-stable worlds/dark_souls_3/
+    - run: git checkout unmissable-quests-stable worlds/dark_souls_3/
 
     - uses: actions/setup-python@v5
       with:
@@ -146,7 +145,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         repository: nex3/SoulsRandomizers
-        ref: archipelago-server
+        ref: unmissable-quests
         path: SoulsRandomizers
 
     - name: Download ModEngine2
@@ -156,7 +155,7 @@ jobs:
 
     - name: Download Archipelago repo
       run: |
-        Invoke-WebRequest -OutFile Archipelago.zip -Uri "https://github.com/nex3/Archipelago/archive/refs/heads/ds3-stable.zip"
+        Invoke-WebRequest -OutFile Archipelago.zip -Uri "https://github.com/nex3/Archipelago/archive/refs/heads/unmissable-quests-stable.zip"
         Expand-Archive Archipelago.zip .
 
     - name: Assemble release
@@ -206,11 +205,11 @@ jobs:
       with:
         repository: nex3/Archipelago
         token: ${{ secrets.GH_TOKEN }}
-        ref: ds3-beta
+        ref: unmissable-quests
         fetch-depth: 0
 
     - run: git tag ds3-${{ needs.version.outputs.version }}
-    - run: git tag ds3-${{ needs.version.outputs.version }}-stable origin/ds3-stable
+    - run: git tag ds3-${{ needs.version.outputs.version }}-stable origin/unmissable-quests-stable
     - run: git push --tag
 
   tag-static:
@@ -221,7 +220,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         repository: nex3/SoulsRandomizers
-        ref: archipelago-server
+        ref: unmissable-quests
         token: ${{ secrets.GH_TOKEN }}
 
     - run: git tag ${{ github.ref_name }}
