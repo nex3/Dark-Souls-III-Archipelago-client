@@ -10,6 +10,7 @@ jobs:
 
     outputs:
       version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.prerelease.outputs.prerelease }}
     steps:
     - id: version
       run: |
@@ -18,6 +19,13 @@ jobs:
           ver="${ver:1}"
         fi
         echo "version=$ver" >> "$GITHUB_OUTPUT"
+    - id: prerelease
+      run: |
+        if [[ "${{ github.ref_name }}" == *-* ]]; then
+          echo "prerelease=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+        fi
 
   build-mod:
     runs-on: windows-latest
@@ -82,12 +90,21 @@ jobs:
       run: dotnet restore SoulsRandomizers\SoulsRandomizers.sln
 
     - name: Build randomizer
-      run: msbuild SoulsRandomizers\DS3Randomizer\DS3Randomizer.csproj '-property:Configuration=Release (Archipelago);PublishDir=bin\publish;PublishProtocol=FileSystem;_TargetId=Folder' '-t:Build;Publish'
+      run: dotnet publish -o standard -c 'Release (Archipelago)' .\SoulsRandomizers\DS3Randomizer\DS3Randomizer.csproj
+
+    - name: Build randomizer (self-contained)
+      run: dotnet publish --self-contained -o self-contained -c 'Release (Archipelago)' .\SoulsRandomizers\DS3Randomizer\DS3Randomizer.csproj
 
     - uses: actions/upload-artifact@v4
       with:
         name: DS3Randomizer.exe
-        path: SoulsRandomizers\DS3Randomizer\bin\publish\DS3Randomizer.exe
+        path: standard\DS3Randomizer.exe
+        if-no-files-found: error
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: DS3Randomizer-self-contained.exe
+        path: self-contained\DS3Randomizer.exe
         if-no-files-found: error
 
   build-yaml:
@@ -175,25 +192,45 @@ jobs:
         name: archipelago.dll
         path: ${{ env.dir }}
 
-    - name: Download DS3Randomizer.exe
-      uses: actions/download-artifact@v4
-      with:
-        name: DS3Randomizer.exe
-        path: ${{ env.dir }}/randomizer
-
     - name: Download YAML
       uses: actions/download-artifact@v4
       with:
         name: Dark Souls III Options Template.yaml
         path: ${{ env.dir }}
 
+    - name: Download DS3Randomizer.exe
+      uses: actions/download-artifact@v4
+      with:
+        name: DS3Randomizer.exe
+        path: ${{ env.dir }}/randomizer
+
     - name: Zip release
       run: Compress-Archive -Path $env:dir -DestinationPath "${{ env.dir }}.zip"
+
+    # The next three steps create a separate "self-contained" zip which includes the whole .NET
+    # framework in DS3Randomizer.exe. This is much larger, but it's useful for people who don't
+    # want extra installation overhead—and particulary for Proton users, for whom installing a .NET
+    # framework version in the same "bottle" as another application is a major pain.
+
+    - name: Remove DS3Randomizer.exe
+      run: rm "${{ env.dir }}/randomizer/DS3Randomizer.exe"
+
+    - name: Download DS3Randomizer-self-contained.exe
+      uses: actions/download-artifact@v4
+      with:
+        name: DS3Randomizer-self-contained.exe
+        path: ${{ env.dir }}/randomizer
+
+    - name: Zip release (self-contained)
+      run: Compress-Archive -Path $env:dir -DestinationPath "${{ env.dir }}-self-contained.zip"
 
     - uses: softprops/action-gh-release@v2
       with:
         body_path: ${{ env.dir }}/README.txt
-        files: ${{ env.dir }}.zip
+        prerelease: ${{ needs.version.outputs.prerelease }}
+        files: |
+          ${{ env.dir }}.zip
+          ${{ env.dir }}-self-contained.zip
 
   # Only push tags once everything else builds successfully, so that they don't break redeploys.
   tag-server:
