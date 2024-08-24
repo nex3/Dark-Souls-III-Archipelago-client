@@ -181,6 +181,7 @@ jobs:
         mkdir -p $env:dir\randomizer\spoiler_logs
         Move-Item -Path SoulsRandomizers\dist $env:dir\randomizer\dist
         Move-Item -Path $env:dir\randomizer\dist\Presets $env:dir\randomizer\presets
+        Move-Item -Path $env:dir\randomizer\dist\Base\menu $env:dir\randomizer\menu
         Move-Item -Path $env:dir\randomizer\dist\Base\script $env:dir\randomizer\script
         Move-Item -Path $env:dir\randomizer\dist\Base\sfx $env:dir\randomizer\sfx
         Move-Item -Path ModEngine-*\modengine2, ModEngine-*\launchmod_darksouls3.bat, ModEngine-*\modengine2_launcher.exe -Destination $env:dir
