@@ -1,6 +1,6 @@
 {
   "name": "dark-souls-iii-archipelago-client",
-  "version-semver": "3.1.0-alpha.10",
+  "version-semver": "3.1.0-alpha.11",
   "dependencies": [
     "asio",
     "nlohmann-json",
