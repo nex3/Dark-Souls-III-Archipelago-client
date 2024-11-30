@@ -62,6 +62,7 @@ jobs:
 
   build-static:
     runs-on: windows-latest
+    needs: [version]
 
     steps:
     - uses: actions/checkout@v4
@@ -91,6 +92,8 @@ jobs:
 
     - name: Build randomizer
       run: dotnet publish -o standard -c 'Release (Archipelago)' .\SoulsRandomizers\DS3Randomizer\DS3Randomizer.csproj
+      env:
+        DS3_AP_VERSION: ${{ needs.version.outputs.version }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -105,19 +108,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        repository: nex3/Archipelago
+        repository: ArchipelagoMW/Archipelago
         token: ${{ secrets.GH_TOKEN }}
-        ref: unmissable-quests-stable
+        ref: unmissable-quests
         fetch-depth: 0
-
-    - run: git config --global user.email "nattlebot@nex-3.com"
-    - run: git config --global user.name "Nattlebot Robobaum"
-
-    - run: git merge --no-edit origin/unmissable-quests
-    - run: git push origin unmissable-quests-stable
-  
-    - run: git checkout 0.5.0
-    - run: git checkout unmissable-quests-stable worlds/dark_souls_3/
 
     - uses: actions/setup-python@v5
       with:
@@ -163,7 +157,7 @@ jobs:
 
     - name: Download Archipelago repo
       run: |
-        Invoke-WebRequest -OutFile Archipelago.zip -Uri "https://github.com/nex3/Archipelago/archive/refs/heads/unmissable-quests-stable.zip"
+        Invoke-WebRequest -OutFile Archipelago.zip -Uri "https://github.com/nex3/Archipelago/archive/refs/heads/unmissable-quests.zip"
         Expand-Archive Archipelago.zip .
 
     - name: Assemble release
@@ -219,7 +213,6 @@ jobs:
         fetch-depth: 0
 
     - run: git tag ds3-${{ needs.version.outputs.version }}
-    - run: git tag ds3-${{ needs.version.outputs.version }}-stable origin/unmissable-quests-stable
     - run: git push --tag
 
   tag-static:

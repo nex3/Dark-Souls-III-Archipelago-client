@@ -28,6 +28,14 @@ This mod works with a single dll file but we also provide a way to downpatch the
 
 ## Building Locally
 
+To prepare your environment:
+
+1. Install Visual Studio with C++ support.
+2. Install [vcpkg](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started-vs):
+   - Clone its repository (`git clone https://github.com/microsoft/vcpkg.git`).
+   - Run its bootstrap script (`bootstrap-vcpkg.bat`).
+   - Integrate it with Visual Studio (`vcpkg integrate install`).
+
 To build the project:
 
 1. Clone the repository (`git clone https://github.com/Marechal-L/Dark-Souls-III-Archipelago-client.git`).
@@ -35,7 +43,7 @@ To build the project:
 3. Open `archipelago-client\archipelago-client.sln` in Visual Studio.
 4. Run Build > Build.
 
-That's it! The mod will be in `x64\Debug\archipelago.yaml`. Copy that over the file of the same
+That's it! The mod will be in `x64\Debug\archipelago.dll`. Copy that over the file of the same
 name from the released version of the mod and you can test against your local build.
 
 ## Credits

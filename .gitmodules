@@ -14,10 +14,7 @@
 	url = https://github.com/0x1F9F1/mem.git
 [submodule "archipelago-client/subprojects/ModEngine2"]
 	path = archipelago-client/subprojects/ModEngine2
-	url = https://github.com/soulsmods/ModEngine2
-[submodule "archipelago-client/subprojects/MINT"]
-	path = archipelago-client/subprojects/MINT
-	url = https://github.com/Chuyu-Team/MINT.git
+	url = https://github.com/nex3/ModEngine2
 
 # This has to be a submodule and not a vcpkg dependency because we only want its headers. If we link
 # the library statically, it will conflict with ModEngine2's own linking and cause the mod not to
