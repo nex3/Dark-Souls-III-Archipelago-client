@@ -108,7 +108,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        repository: ArchipelagoMW/Archipelago
+        repository: nex3/Archipelago
         token: ${{ secrets.GH_TOKEN }}
         ref: unmissable-quests
         fetch-depth: 0
