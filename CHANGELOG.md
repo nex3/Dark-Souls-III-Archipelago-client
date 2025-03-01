@@ -1,3 +1,7 @@
+## 3.0.1
+
+* Add a checkbox to the static randomizer allowing users to disable the enemy randomizer. It has known upstream bugs that can cause the game to crash if the wrong enemy is loaded into the wrong area, so this is necessary to avoid users becoming softlocked.
+
 ## 3.0.0
 
 This release debuts a new architecture for randomizing Dark Souls III for the Archipelago multiworld randomizer. It has a number of major feature improvements over the old 2.x.x line, including:
