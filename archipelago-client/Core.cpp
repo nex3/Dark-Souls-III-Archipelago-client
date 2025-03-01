@@ -51,7 +51,7 @@ void CCore::on_attach() {
 	spdlog::info(
 		"Archipelago client v" VERSION "\n"
 		"A new version may or may not be available, please check this link for updates: "
-		"https://github.com/Marechal-L/Dark-Souls-III-Archipelago-client/releases\n"
+		"https://github.com/nex3/Dark-Souls-III-Archipelago-client/releases\n"
 		"Type '/connect {SERVER_IP}:{SERVER_PORT} {SLOT_NAME} [password:{PASSWORD}]' to connect to the room\n"
 		"Type '/help' for more information\n"
 		"-----------------------------------------------------");
