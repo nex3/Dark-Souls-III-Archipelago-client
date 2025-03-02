@@ -1,5 +1,9 @@
 ## 3.0.1
 
+* Fix a bug where picking up a stack of items that includes Path of the Dragon could cause strange side effects, including having other items not register or crashing the game.
+
+* Change the set of simple early bosses to exclude early/midgame bosses that are actually quite difficult to fight with few upgrades and include late-game bosses that scale down gracefully. The current list is Oceiros, Vordt, Dragonslayer Armour, Ancient Wyvern, Crystal Sage, both Twin Princes, Yhorm, both Gundyrs, Friede 1, and Gael 1.
+
 * Add a checkbox to the static randomizer allowing users to disable the enemy randomizer. It has known upstream bugs that can cause the game to crash if the wrong enemy is loaded into the wrong area, so this is necessary to avoid users becoming softlocked.
 
 * Link to nex3's fork for updates.

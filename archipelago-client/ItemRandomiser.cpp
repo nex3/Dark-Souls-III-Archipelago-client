@@ -67,8 +67,10 @@ VOID CItemRandomiser::RandomiseItem(SItemBuffer* pItemBuffer) {
 
 	if (indexToRemove != -1)
 	{
-		std::memcpy(&pItemBuffer[indexToRemove], &pItemBuffer[indexToRemove + 1],
-			(pItemBuffer->length - 1) * sizeof(SItemBufferEntry));
+		for (uint32_t i = indexToRemove + 1; i < pItemBuffer->length; i++)
+		{
+			pItemBuffer->items[i - 1] = pItemBuffer->items[i];
+		}
 		pItemBuffer->length--;
 	}
 
