@@ -9,7 +9,8 @@
     "lua",
     "tomlplusplus",
     "valijson",
-    "websocketpp"
+    "websocketpp",
+    "zlib"
   ],
   "vcpkg-configuration": {
     "default-registry": {
