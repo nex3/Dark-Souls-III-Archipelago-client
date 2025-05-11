@@ -53,7 +53,6 @@ public:
 	virtual VOID Panic(const char* pMessage, const char* pSort, DWORD dError, DWORD dIsFatalError);
 	virtual VOID ReadConfigFiles();
 	virtual VOID SaveConfigFiles();
-	virtual VOID CleanReceivedItemsList();
 	virtual BOOL CheckOldApFile();
 
 	std::string pSlotName;
@@ -79,6 +78,14 @@ private:
 
 	void on_attach() override;
 	void on_detach() override;
+
+	// Removes items from [ItemRandomizer.ReceivedItemsQueue] that were already received according
+	// to [pLastReceivedIndex].
+	void SkipAlreadyReceivedItems();
+
+	// Removes (without deleting in case the user still wants it) the old config/save file. This
+	// should only be called once the file is detected to be broken somehow.
+	void RemoveOldConfigFile();
 
 	// Atomically writes the given contents to the given file. Guarantees as much as possible that 
 	// the file will either not be updated or will have all of the given contents.

@@ -111,11 +111,6 @@ BOOL CArchipelago::Initialise(std::string URI) {
 			std::string sender = ap->get_player_alias(item.player);
 			std::string location = ap->get_location_name(item.location, ap->get_player_game(item.player));
 
-			//Check if we should ignore this item
-			if (item.index < Core->pLastReceivedIndex) {
-				continue;
-			}
-
 			spdlog::info("#{}: {} from {} - {}", item.index, itemname, sender, location);
 
 			//Determine the item address
@@ -126,6 +121,7 @@ BOOL CArchipelago::Initialise(std::string URI) {
 			}
 
 			auto countSearch = ItemRandomiser->pItemCounts.find(item.item);
+			spdlog::warn("adding item index: {} to receivedItemsQueue", item.index);
 			ItemRandomiser->receivedItemsQueue.push_front({
 				ds3IdSearch->second,
 				countSearch == ItemRandomiser->pItemCounts.end() ? 1 : countSearch->second

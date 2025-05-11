@@ -153,7 +153,7 @@ VOID CCore::Run() {
 
 		if (!isInit && ArchipelagoInterface->isConnected() && initProtectionDelay <= 0) {
 			ReadConfigFiles();
-			CleanReceivedItemsList();
+			SkipAlreadyReceivedItems();
 
 			//Apply player settings
 			BOOL initResult = GameHook->applySettings();
@@ -170,8 +170,8 @@ VOID CCore::Run() {
 			GameHook->manageDeathLink();
 
 			if (!ItemRandomiser->receivedItemsQueue.empty()) {
+				pLastReceivedIndex += ItemRandomiser->receivedItemsQueue.size();
 				GameHook->giveItems();
-				pLastReceivedIndex++;
 			}
 
 			if (GameHook->isSoulOfCinderDefeated() && sendGoalStatus) {
@@ -194,7 +194,19 @@ VOID CCore::Run() {
 * Permits to remove all received item indexes lower than pLastReceivedIndex from the list.
 * It has be to performed after the first connection because we now read the pLastReceivedIndex from the slot_data.
 */
-VOID CCore::CleanReceivedItemsList() {
+VOID CCore::SkipAlreadyReceivedItems() {
+	if (pLastReceivedIndex > ItemRandomiser->receivedItemsQueue.size()) {
+		spdlog::warn(
+			"Your last_received_index {} is greater than the number of items you've ever "
+			"received. This probably means that your local Archipelago save has been corrupted. "
+			"The client will fix this automatically, but you'll end up receiving all your items "
+			"again."
+		);
+		pLastReceivedIndex = 0;
+		RemoveOldConfigFile();
+		return;
+	}
+
 	if (!ItemRandomiser->receivedItemsQueue.empty()) {
 		spdlog::debug("Removing {0} items according to the last_received_index", pLastReceivedIndex);
 		for (int i = 0; i < pLastReceivedIndex; i++) {
@@ -203,6 +215,14 @@ VOID CCore::CleanReceivedItemsList() {
 			}
 		}
 	}
+}
+
+void CCore::RemoveOldConfigFile()
+{
+	std::filesystem::path path("archipelago\\" + Core->pSeed + "_" + Core->pSlotName + ".json");
+	std::filesystem::path brokenPath(path);
+	brokenPath.replace_filename("(broken) " + path.filename().string());
+	MoveFileW(WindowsLongPath(path).c_str(), WindowsLongPath(brokenPath).c_str());
 }
 
 
@@ -334,15 +354,11 @@ VOID CCore::ReadConfigFiles() {
 	try {
 		gameFile >> k;
 		k.at("last_received_index").get_to(pLastReceivedIndex);
+		spdlog::warn("Loaded last_received_index: {}", pLastReceivedIndex);
 	} catch (const std::exception& error) {
 		gameFile.close();
 
-		// Move the old config file out of the way in case it contains meaningful data, because
-		// we're going to overwrite it.
-		std::filesystem::path brokenPath(actualConfigPath);
-		brokenPath.replace_filename("(broken) " + actualConfigPath.filename().string());
-		MoveFileW(WindowsLongPath(actualConfigPath).c_str(), WindowsLongPath(brokenPath).c_str());
-
+		RemoveOldConfigFile();
 		spdlog::warn(
 			"Failed to read {}: {}\n"
 			"You will receive all foreign items again.",
