@@ -1,3 +1,7 @@
+## 3.0.3
+
+* Fix a bug in the new player name trimming where it was only using the player's slotname, not their alias.
+
 ## 3.0.2
 
 * Improve the way save data is handled. It's now harder for the `last_received_index` to get corrupted and cause a player to be unable to receive new items, and the mod will automatically recover when this happens.
