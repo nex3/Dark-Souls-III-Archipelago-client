@@ -3,6 +3,7 @@
 
 #include "ArchipelagoInterface.h"
 #include "ItemRandomiser.h"
+#include "subprojects/apclientpp/apuuid.hpp"
 
 #ifdef __EMSCRIPTEN__
 #define DATAPACKAGE_CACHE "/settings/datapackage.json"
@@ -106,9 +107,9 @@ BOOL CArchipelago::Initialise(std::string URI) {
 		}
 
 		for (const auto& item : items) {
-			std::string itemname = ap->get_item_name(item.item);
+			std::string itemname = ap->get_item_name(item.item, ap->get_player_game(item.player));
 			std::string sender = ap->get_player_alias(item.player);
-			std::string location = ap->get_location_name(item.location);
+			std::string location = ap->get_location_name(item.location, ap->get_player_game(item.player));
 
 			//Check if we should ignore this item
 			if (item.index < Core->pLastReceivedIndex) {
