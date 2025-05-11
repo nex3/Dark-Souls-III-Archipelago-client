@@ -8,6 +8,7 @@ runs:
   - uses: microsoft/setup-msbuild@v2
     with: {msbuild-architecture: x64}
   - run: msbuild --version
+    shell: pwsh
  
   # From https://learn.microsoft.com/en-us/vcpkg/consume/binary-caching-github-actions-cache
   - name: Export GitHub Actions cache environment variables
@@ -19,13 +20,16 @@ runs:
 
   - run: vcpkg integrate install
     working-directory: archipelago-client
+    shell: pwsh
     env:
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   - run: vcpkg install
     working-directory: archipelago-client
+    shell: pwsh
     env:
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   - name: Build mod
     run: msbuild archipelago-client\archipelago-client.vcxproj -verbosity:diag '-property:Configuration=Release;Platform=x64'
+    shell: pwsh
     env:
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
