@@ -1,3 +1,17 @@
+## 3.0.2
+
+* Improve the way save data is handled. It's now harder for the `last_received_index` to get corrupted and cause a player to be unable to receive new items, and the mod will automatically recover when this happens.
+
+* Fix some bugs where locations that hold the same item by default could occasionally be swapped with one another.
+
+* Properly include only Sister Friede as a "simple early boss", not the Friede & Ariandel + Blackflame Friede sequence.
+
+* Trim player names before trimming item names when displaying long foreign item names.
+
+* Improve various aspects of the DS3Randomizer.exe UI.
+
+* Update dependencies for better compatibility with the Archipelago server and to avoid annoying warning messages.
+
 ## 3.0.1
 
 * Fix a bug where picking up a stack of items that includes Path of the Dragon could cause strange side effects, including having other items not register or crashing the game.
