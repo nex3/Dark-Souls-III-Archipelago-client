@@ -9,7 +9,7 @@ This package contains the static randomizer and the DS3 mod for integrating _Dar
 
 You can also check out [the changelog] for information about the changes in the latest randomizer release.
 
-[the changelog]: https://github.com/nex3/Dark-Souls-III-Archipelago-client/blog/main/CHANGELOG.md
+[the changelog]: https://github.com/nex3/Dark-Souls-III-Archipelago-client/blob/main/CHANGELOG.md
 
 ## Acknowledgements
 
