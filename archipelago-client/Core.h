@@ -80,4 +80,34 @@ private:
 	void on_attach() override;
 	void on_detach() override;
 
+	// Atomically writes the given contents to the given file. Guarantees as much as possible that 
+	// the file will either not be updated or will have all of the given contents.
+	//
+	// Throws an exception if writing fails.
+	void WriteAtomic(const std::filesystem::path& path, const std::string& contents);
+
+	// Converts a (UTF-8 encoded) string into a wide string suitable for use with win32 APIs.
+	inline std::wstring Widen(const std::string& string)
+	{
+		if (string.empty()) return std::wstring();
+		std::mbstate_t state = std::mbstate_t();
+		const char* data = string.data();
+		std::size_t length = 1 + std::mbsrtowcs(nullptr, &data, 0, &state);
+		std::wstring result(length, L'\0');
+
+		std::mbsrtowcs(result.data(), &data, result.size(), &state);
+		return result;
+	}
+
+	// Converts the given path to safely avoid MAX_PATH limits on Windows.
+	inline std::filesystem::path WindowsLongPath(const std::filesystem::path& path)
+	{
+		// The \\?\ prefix that disables MAX_PATH limits also disables automatic resolution of
+		// . and .. path components, so we have to normalize the path before conversion.
+		return std::filesystem::path(
+			L"\\\\?\\" + std::filesystem::absolute(path).lexically_normal().wstring()
+		);
+	}
+
+
 };

@@ -77,6 +77,55 @@ void CCore::on_detach() {
 	// Do nothing; this function is never called.
 }
 
+void CCore::WriteAtomic(const std::filesystem::path& path, const std::string& contents)
+{
+	// Add this silly prefix to suport long path names in the Windows API.
+	std::filesystem::path realPath = WindowsLongPath(path);
+	std::filesystem::path swapPath(realPath);
+	swapPath += ".swap";
+	std::ofstream swapFile{ swapPath };
+	swapFile << contents;
+	swapFile.close();
+
+	if (ReplaceFileW(
+		realPath.c_str(),
+		swapPath.c_str(),
+		NULL,
+		REPLACEFILE_IGNORE_MERGE_ERRORS | REPLACEFILE_IGNORE_ACL_ERRORS,
+		NULL,
+		NULL
+	)) {
+		return;
+	}
+
+	// ReplaceFileW requires the destination file to exist, so if it failed it's probably
+	// because the destination file hasn't been created yet.
+	if (GetLastError() == ERROR_FILE_NOT_FOUND) {
+		if (MoveFileW(swapPath.c_str(), realPath.c_str())) return;
+	}
+
+	LPTSTR errorText = NULL;
+	FormatMessage(
+		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		GetLastError(),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		(LPTSTR)&errorText,
+		0,
+		NULL
+	);
+
+	if (NULL != errorText) {
+		std::string message = "Failed to write to " + path.string() + ": " + errorText;
+		LocalFree(errorText);
+		errorText = NULL;
+		throw std::runtime_error(message);
+	}
+	else {
+		throw std::runtime_error("Failed to write to " + path.string() + ".");
+	}
+}
+
 VOID CCore::Start() {
 
 	while (true) {
@@ -261,14 +310,16 @@ VOID CCore::InputCommand() {
 
 VOID CCore::ReadConfigFiles() {
 
-	std::string outputFolder = "archipelago";
-	std::string filename = Core->pSeed + "_" + Core->pSlotName + ".json";
+	std::filesystem::path outputFolder("archipelago");
+	std::filesystem::path filename(Core->pSeed + "_" + Core->pSlotName + ".json");
 
-	//Check in archipelago folder
-	std::ifstream gameFile(outputFolder+"\\"+filename);
+	// Check in archipelago folder
+	auto actualConfigPath = outputFolder / filename;
+	std::ifstream gameFile{ WindowsLongPath(actualConfigPath) };
 	if (!gameFile.good()) {
+		actualConfigPath = filename;
 		//Check outside the folder
-		std::ifstream gameFile(filename);
+		std::ifstream gameFile{ WindowsLongPath(actualConfigPath) };
 		if (!gameFile.good()) {
 			//Missing session file, that's probably a new game
 			spdlog::debug("No save found, starting a new game");
@@ -277,16 +328,27 @@ VOID CCore::ReadConfigFiles() {
 	}
 
 	//Read the game file
-	spdlog::debug("Reading {}/{}", outputFolder, filename);
+	spdlog::debug("Reading {}", actualConfigPath.string());
 	json k;
 
 	try {
 		gameFile >> k;
 		k.at("last_received_index").get_to(pLastReceivedIndex);
-	} catch (const std::exception&) {
+	} catch (const std::exception& error) {
 		gameFile.close();
-		Core->Panic(("Failed reading " + outputFolder + "/" + filename).c_str(), "", AP_InitFailed, 1);
-		int3
+
+		// Move the old config file out of the way in case it contains meaningful data, because
+		// we're going to overwrite it.
+		std::filesystem::path brokenPath(actualConfigPath);
+		brokenPath.replace_filename("(broken) " + actualConfigPath.filename().string());
+		MoveFileW(WindowsLongPath(actualConfigPath).c_str(), WindowsLongPath(brokenPath).c_str());
+
+		spdlog::warn(
+			"Failed to read {}: {}\n"
+			"You will receive all foreign items again.",
+			actualConfigPath.string(),
+			error.what()
+		);
 	}
 
 	gameFile.close();
@@ -299,28 +361,25 @@ VOID CCore::SaveConfigFiles() {
 
 	saveConfigFiles = false;
 	
-	std::string outputFolder = "archipelago";
-	std::string filename = Core->pSeed + "_" + Core->pSlotName + ".json";
-
-	spdlog::debug("Writing to {}/{}", outputFolder, filename);
+	std::filesystem::path outputFolder("archipelago");
+	std::filesystem::path filename(Core->pSeed + "_" + Core->pSlotName + ".json");
 
 	json j;
 	j["last_received_index"] = pLastReceivedIndex;
 
 	try {
-		if (CreateDirectory(outputFolder.c_str(), NULL) || ERROR_ALREADY_EXISTS == GetLastError()) {
-			std::ofstream outfile(outputFolder + "\\" + filename);
-			outfile << std::setw(4) << j << std::endl;
-			outfile.close();
+		if (CreateDirectoryW(WindowsLongPath(outputFolder).c_str(), NULL) ||
+			    ERROR_ALREADY_EXISTS == GetLastError()) {
+			spdlog::debug("Writing to {}", (outputFolder / filename).string());
+			WriteAtomic(outputFolder / filename, j.dump());
 		}
 		else {
-			std::ofstream outfile(filename);
-			outfile << std::setw(4) << j << std::endl;
-			outfile.close();
+			spdlog::debug("Writing to {}", filename.string());
+			WriteAtomic(filename, j.dump());
 		}
 	}
-	catch (const std::exception&) {
-		spdlog::warn("Failed writing {}/{}", outputFolder, filename);
+	catch (const std::exception& error) {
+		spdlog::warn("Failed to save data: {}", error.what());
 	}
 }
 
