@@ -1,3 +1,7 @@
+## 3.0.4
+
+* Fix another player name bug that caused the static randomizer to fail.
+
 ## 3.0.3
 
 * Fix a bug in the new player name trimming where it was only using the player's slotname, not their alias.
