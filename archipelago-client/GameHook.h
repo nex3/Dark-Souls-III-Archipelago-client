@@ -11,7 +11,7 @@ public:
 	virtual BOOL initialize();
 	virtual BOOL applySettings();
 	virtual VOID updateRuntimeValues();
-	virtual VOID giveItems();
+	virtual VOID GiveNextItem();
 	virtual BOOL isSoulOfCinderDefeated();
 	virtual VOID manageDeathLink();
 	int healthPoint = -1, lastHealthPoint = -1;

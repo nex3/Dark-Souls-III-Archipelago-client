@@ -170,8 +170,8 @@ VOID CCore::Run() {
 			GameHook->manageDeathLink();
 
 			if (!ItemRandomiser->receivedItemsQueue.empty()) {
-				pLastReceivedIndex += ItemRandomiser->receivedItemsQueue.size();
-				GameHook->giveItems();
+				pLastReceivedIndex++;
+				GameHook->GiveNextItem();
 			}
 
 			if (GameHook->isSoulOfCinderDefeated() && sendGoalStatus) {

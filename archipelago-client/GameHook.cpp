@@ -178,7 +178,7 @@ VOID CGameHook::updateRuntimeValues() {
 	soulOfCinderDefeated = SprjEventFlagMan::instance()->worldFlags[0x5F67];
 }
 
-VOID CGameHook::giveItems() {
+VOID CGameHook::GiveNextItem() {
 	if (ItemRandomiser->receivedItemsQueue.empty()) return;
 
 	//Send the next item in the list
