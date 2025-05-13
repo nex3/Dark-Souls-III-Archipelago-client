@@ -1,3 +1,11 @@
+## 3.0.5
+
+* Overhaul the way the player logs in through the console window. Rather than needing to type in the full room URL and slot name every time, the static randomizer will now write an `apconfig.json` file with the player's room URL, slot name, and optionally password. The player will then be prompted to re-use this upon starting the client, and only have to retype the information if they need to update it.
+
+* Fix a bug where the client always believed the save file to be corrupted and so gave additional copies of every foreign item on each log-in.
+
+* Remove a few leftover debug prints.
+
 ## 3.0.4
 
 * Fix another player name bug that caused the static randomizer to fail.
