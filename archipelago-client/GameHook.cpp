@@ -192,7 +192,7 @@ VOID CGameHook::GiveNextItem() {
 		int unknown = 1;
 		ItemRandomiser->HookedItemGib(*mapItemMan, &items, &unknown);
 	}
-	Core->saveConfigFiles = true;
+	Core->writeSaveFileNextTick = true;
 }
 
 BOOL CGameHook::isSoulOfCinderDefeated() {

@@ -51,14 +51,16 @@ public:
 	static VOID InputCommand();
 	virtual VOID Run();
 	virtual VOID Panic(const char* pMessage, const char* pSort, DWORD dError, DWORD dIsFatalError);
-	virtual VOID ReadConfigFiles();
-	virtual VOID SaveConfigFiles();
 	virtual BOOL CheckOldApFile();
+
+	// Initializes [savePath]. May only be called after a connection has been established. Throws
+	// an exception if initialization is unsuccessful.
+	void InitSavePath();
 
 	std::string pSlotName;
 	std::string pPassword;
 	std::string pSeed;
-	BOOL saveConfigFiles = false;
+	BOOL writeSaveFileNextTick = false;
 	BOOL sendGoalStatus = true;
 	int pLastReceivedIndex = 0;
 
@@ -72,6 +74,9 @@ private:
 	// its debug output).
 	BOOL modEngineDebug = false;
 
+	// The path where the save data for the current run lives.
+	std::filesystem::path savePath;
+
 	const char* id() override {
 		return "archipelago";
 	}
@@ -83,9 +88,16 @@ private:
 	// to [pLastReceivedIndex].
 	void SkipAlreadyReceivedItems();
 
-	// Removes (without deleting in case the user still wants it) the old config/save file. This
-	// should only be called once the file is detected to be broken somehow.
-	void RemoveOldConfigFile();
+	// Loads the file at [savePath] into the client's data structures. Throws an exception if the
+	// save file fails to load.
+	void LoadSaveFile();
+
+	// Writes the client's updated data to the file at [savePath].
+	void WriteSaveFile();
+
+	// Removes (without deleting in case the user still wants it) the old save file. This should
+	// only be called once the file is detected to be broken somehow.
+	void RemoveOldSaveFile();
 
 	// Atomically writes the given contents to the given file. Guarantees as much as possible that 
 	// the file will either not be updated or will have all of the given contents.
@@ -116,5 +128,24 @@ private:
 		);
 	}
 
+	// Prompts the user for a yes or no response in the command line window. Returns true if they
+	// respond "y", false if they respond "n". Returns [defaultResponse] if they press any other
+	// key.
+	bool PromptYN(std::string message, bool defaultResponse = true);
 
+	// Prompts the user for a string response in the command line window.
+	std::string PromptString(std::string prompt);
+
+	// Prompts the user for a string response in the command line window, using the given default
+	// value if they don't type anything.
+	std::string PromptString(std::string prompt, std::string defaultValue);
+
+	// Prompts the user for a string response in the command line window, using the given default
+	// value if they don't type anything.
+	//
+	// Hides the default value rather than displaying it in plain text.
+	std::string PromptStringHideDefault(std::string prompt, std::string defaultValue);
+
+	// Returns a text description of the last Win32 error, or none if that fails.
+	std::optional<std::string> GetLastWin32ErrorText();
 };

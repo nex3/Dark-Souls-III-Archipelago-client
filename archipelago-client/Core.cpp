@@ -1,5 +1,6 @@
 #include "Core.h"
 
+#include <conio.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/wincolor_sink.h>
 
@@ -15,7 +16,6 @@ CArchipelago* ArchipelagoInterface;
 
 using nlohmann::json;
 
-
 CCore::CCore(modengine::ModEngineExtensionConnector* connector)
 		: modengine::ModEngineExtension(connector) {
 
@@ -23,6 +23,20 @@ CCore::CCore(modengine::ModEngineExtensionConnector* connector)
 	GameHook = new CGameHook();
 	ItemRandomiser = new CItemRandomiser();
 	AutoEquip = new CAutoEquip();
+}
+
+void CCore::InitSavePath()
+{
+	// We keep the save path relative to the current working directory, since we want the saved
+	// data to remain consistent even if the player upgrades to a new AP patch version.
+	std::filesystem::path baseName(Core->pSeed + "_" + Core->pSlotName + ".json");
+	if (CreateDirectoryW(WindowsLongPath("archipelago").c_str(), NULL) ||
+			ERROR_ALREADY_EXISTS == GetLastError()) {
+		savePath = std::filesystem::path("archipelago\\" + baseName.string());
+	}
+	else {
+		savePath = baseName;
+	}
 }
 
 void CCore::on_attach() {
@@ -104,6 +118,18 @@ void CCore::WriteAtomic(const std::filesystem::path& path, const std::string& co
 		if (MoveFileW(swapPath.c_str(), realPath.c_str())) return;
 	}
 
+	auto error = GetLastWin32ErrorText();
+	if (error.has_value()) {
+		std::string message = "Failed to write to " + path.string() + ": " + error.value();
+		throw std::runtime_error(message);
+	}
+	else {
+		throw std::runtime_error("Failed to write to " + path.string() + ".");
+	}
+}
+
+std::optional<std::string> CCore::GetLastWin32ErrorText()
+{
 	LPTSTR errorText = NULL;
 	FormatMessage(
 		FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -115,15 +141,10 @@ void CCore::WriteAtomic(const std::filesystem::path& path, const std::string& co
 		NULL
 	);
 
-	if (NULL != errorText) {
-		std::string message = "Failed to write to " + path.string() + ": " + errorText;
-		LocalFree(errorText);
-		errorText = NULL;
-		throw std::runtime_error(message);
-	}
-	else {
-		throw std::runtime_error("Failed to write to " + path.string() + ".");
-	}
+	if (NULL == errorText) return {};
+	auto result = std::string(errorText);
+	LocalFree(errorText);
+	return result;
 }
 
 VOID CCore::Start() {
@@ -152,11 +173,11 @@ VOID CCore::Run() {
 		GameHook->updateRuntimeValues();
 
 		if (!isInit && ArchipelagoInterface->isConnected() && initProtectionDelay <= 0) {
-			ReadConfigFiles();
+			LoadSaveFile();
 			SkipAlreadyReceivedItems();
 
 			//Apply player settings
-			BOOL initResult = GameHook->applySettings();
+			BOOL initResult = GameHook->applySettings();	
 			if (!initResult) {
 				Core->Panic("Failed to apply settings", "...\\Randomiser\\Core\\Core.cpp", FE_ApplySettings, 1);
 				int3
@@ -180,12 +201,12 @@ VOID CCore::Run() {
 			}
 		} else if (initProtectionDelay > 0) {
 			int secondsRemaining = (RUN_SLEEP / 1000) * initProtectionDelay;
-			spdlog::info("The mod will be initialized in {} seconds", secondsRemaining);
+			spdlog::debug("The mod will be initialized in {} seconds", secondsRemaining);
 			initProtectionDelay--;
 		}
 	}
 
-	SaveConfigFiles();
+	WriteSaveFile();
 
 	return;
 };
@@ -198,12 +219,14 @@ VOID CCore::SkipAlreadyReceivedItems() {
 	if (pLastReceivedIndex > ItemRandomiser->receivedItemsQueue.size()) {
 		spdlog::warn(
 			"Your last_received_index {} is greater than the number of items you've ever "
-			"received. This probably means that your local Archipelago save has been corrupted. "
-			"The client will fix this automatically, but you'll end up receiving all your items "
-			"again."
+			"received ({}). This probably means that your local Archipelago save has been "
+			"corrupted. The client will fix this automatically, but you'll end up receiving all "
+			"your items again.",
+			pLastReceivedIndex,
+			ItemRandomiser->receivedItemsQueue.size()
 		);
 		pLastReceivedIndex = 0;
-		RemoveOldConfigFile();
+		RemoveOldSaveFile();
 		return;
 	}
 
@@ -217,12 +240,11 @@ VOID CCore::SkipAlreadyReceivedItems() {
 	}
 }
 
-void CCore::RemoveOldConfigFile()
+void CCore::RemoveOldSaveFile()
 {
-	std::filesystem::path path("archipelago\\" + Core->pSeed + "_" + Core->pSlotName + ".json");
-	std::filesystem::path brokenPath(path);
-	brokenPath.replace_filename("(broken) " + path.filename().string());
-	MoveFileW(WindowsLongPath(path).c_str(), WindowsLongPath(brokenPath).c_str());
+	std::filesystem::path brokenPath(savePath);
+	brokenPath.replace_filename("(broken) " + savePath.filename().string());
+	MoveFileW(WindowsLongPath(savePath).c_str(), WindowsLongPath(brokenPath).c_str());
 }
 
 
@@ -298,7 +320,7 @@ VOID CCore::InputCommand() {
 			}
 
 			
-		} 
+		}
 		else if (line.find("/connect ") == 0) {
 			std::string param = line.substr(9);
 			int spaceIndex = param.find(" ");
@@ -328,77 +350,46 @@ VOID CCore::InputCommand() {
 	}
 };
 
-VOID CCore::ReadConfigFiles() {
-
-	std::filesystem::path outputFolder("archipelago");
-	std::filesystem::path filename(Core->pSeed + "_" + Core->pSlotName + ".json");
-
-	// Check in archipelago folder
-	auto actualConfigPath = outputFolder / filename;
-	std::ifstream gameFile{ WindowsLongPath(actualConfigPath) };
+void CCore::LoadSaveFile() {
+	std::ifstream gameFile{ WindowsLongPath(savePath) };
 	if (!gameFile.good()) {
-		actualConfigPath = filename;
-		//Check outside the folder
-		std::ifstream gameFile{ WindowsLongPath(actualConfigPath) };
-		if (!gameFile.good()) {
-			//Missing session file, that's probably a new game
-			spdlog::debug("No save found, starting a new game");
-			return;
-		}
+		spdlog::debug("No save file found, starting a new game");
+		return;
 	}
 
-	//Read the game file
-	spdlog::debug("Reading {}", actualConfigPath.string());
+	spdlog::debug("Reading {}", savePath.string());
 	json k;
 
 	try {
 		gameFile >> k;
 		k.at("last_received_index").get_to(pLastReceivedIndex);
-		spdlog::warn("Loaded last_received_index: {}", pLastReceivedIndex);
-	} catch (const std::exception& error) {
-		gameFile.close();
-
-		RemoveOldConfigFile();
+	}
+	catch (const std::exception& error) {
+		RemoveOldSaveFile();
 		spdlog::warn(
 			"Failed to read {}: {}\n"
 			"You will receive all foreign items again.",
-			actualConfigPath.string(),
+			savePath.string(),
 			error.what()
 		);
 	}
-
-	gameFile.close();
 };
 
-VOID CCore::SaveConfigFiles() {
-
-	if (!saveConfigFiles)
-		return;
-
-	saveConfigFiles = false;
-	
-	std::filesystem::path outputFolder("archipelago");
-	std::filesystem::path filename(Core->pSeed + "_" + Core->pSlotName + ".json");
+VOID CCore::WriteSaveFile() {
+	if (!writeSaveFileNextTick) return;
+	writeSaveFileNextTick = false;
 
 	json j;
 	j["last_received_index"] = pLastReceivedIndex;
 
 	try {
-		if (CreateDirectoryW(WindowsLongPath(outputFolder).c_str(), NULL) ||
-			    ERROR_ALREADY_EXISTS == GetLastError()) {
-			spdlog::debug("Writing to {}", (outputFolder / filename).string());
-			WriteAtomic(outputFolder / filename, j.dump());
-		}
-		else {
-			spdlog::debug("Writing to {}", filename.string());
-			WriteAtomic(filename, j.dump());
-		}
+		spdlog::debug("Writing to {}", savePath.string());
+		WriteAtomic(savePath, j.dump());
 	}
 	catch (const std::exception& error) {
-		spdlog::warn("Failed to save data: {}", error.what());
+		spdlog::warn("Failed to save config: {}", error.what());
 	}
 }
-
 
 // Entrypoint called by ModEngine2 to initialize this extension.
 bool modengine_ext_init(modengine::ModEngineExtensionConnector* connector,

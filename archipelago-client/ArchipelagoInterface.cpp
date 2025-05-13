@@ -74,6 +74,7 @@ BOOL CArchipelago::Initialise(std::string URI) {
 			ap->ConnectUpdate(false, 1, true, tags);
 		}
 
+		Core->InitSavePath();
 		Core->connected = true;
 		ItemRandomiser->sendMissedItems();
 
@@ -121,7 +122,6 @@ BOOL CArchipelago::Initialise(std::string URI) {
 			}
 
 			auto countSearch = ItemRandomiser->pItemCounts.find(item.item);
-			spdlog::warn("adding item index: {} to receivedItemsQueue", item.index);
 			ItemRandomiser->receivedItemsQueue.push_front({
 				ds3IdSearch->second,
 				countSearch == ItemRandomiser->pItemCounts.end() ? 1 : countSearch->second
