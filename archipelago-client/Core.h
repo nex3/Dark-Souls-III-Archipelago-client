@@ -74,8 +74,17 @@ private:
 	// its debug output).
 	BOOL modEngineDebug = false;
 
+	// The path where the config file for the current run lives.
+	std::filesystem::path configPath;
+
 	// The path where the save data for the current run lives.
 	std::filesystem::path savePath;
+
+	// The raw config data currently stored in [configPath].
+	nlohmann::json configData;
+
+	// Initializes [configPath]. Throws an exception if initialization is unsuccessful.
+	void InitConfigPath();
 
 	const char* id() override {
 		return "archipelago";
@@ -84,9 +93,19 @@ private:
 	void on_attach() override;
 	void on_detach() override;
 
+	// Walks the user through connecting to the Archipelago server.
+	void Connect();
+
 	// Removes items from [ItemRandomizer.ReceivedItemsQueue] that were already received according
 	// to [pLastReceivedIndex].
 	void SkipAlreadyReceivedItems();
+
+	// Loads the file at [configPath] into the client's data structures. Throws an exception if the
+	// config file fails to load.
+	void LoadConfigFile();
+
+	// Writes the client's updated configuration to the file at [configPath].
+	void WriteConfigFile();
 
 	// Loads the file at [savePath] into the client's data structures. Throws an exception if the
 	// save file fails to load.

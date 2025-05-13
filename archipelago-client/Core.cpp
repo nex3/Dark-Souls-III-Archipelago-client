@@ -25,6 +25,59 @@ CCore::CCore(modengine::ModEngineExtensionConnector* connector)
 	AutoEquip = new CAutoEquip();
 }
 
+void CCore::InitConfigPath()
+{
+	HMODULE module;
+	if (!GetModuleHandleExW(
+		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+		GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		(LPCWSTR)&Core,
+		&module
+	)) {
+		auto text = GetLastWin32ErrorText();
+		throw std::runtime_error(
+			text.has_value()
+			? "ERROR: Could not determine path to archipelago.dll: " + text.value()
+			: "ERROR: Could not determine path to archipelago.dll."
+		);
+	}
+
+	// GetModuleFileNameW doesn't have any way to indicate how much room is necessary for the file,
+	// so we have to progressively increase our allocation until we hit the appropriate size.
+	DWORD size = MAX_PATH;
+	float growthFactor = 1.5;
+	while (true)
+	{
+		// Determine the config path relative to the path to archipelago.dll, since the current
+		// working directory is going to be based on DarkSouls3.exe.
+		std::wstring modulePath(size, L'\0');
+		auto length = GetModuleFileNameW(module, modulePath.data(), size);
+		if (length == 0)
+		{
+			auto text = GetLastWin32ErrorText();
+			throw std::runtime_error(
+				text.has_value()
+				? "ERROR: Could not determine path to archipelago.dll: " + text.value()
+				: "ERROR: Could not determine path to archipelago.dll."
+			);
+		}
+
+		if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+		{
+			size = (DWORD)(size * growthFactor);
+			continue;
+		}
+
+		configPath = std::filesystem::path(
+			modulePath.starts_with(L"\\\\?\\")
+				? modulePath.substr(sizeof L"\\\\?\\" - 1)
+				: modulePath
+		);
+		configPath.replace_filename("apconfig.json");
+		return;
+	}
+}
+
 void CCore::InitSavePath()
 {
 	// We keep the save path relative to the current working directory, since we want the saved
@@ -66,9 +119,26 @@ void CCore::on_attach() {
 		"Archipelago client v" VERSION "\n"
 		"A new version may or may not be available, please check this link for updates: "
 		"https://github.com/nex3/Dark-Souls-III-Archipelago-client/releases\n"
-		"Type '/connect {SERVER_IP}:{SERVER_PORT} {SLOT_NAME} [password:{PASSWORD}]' to connect to the room\n"
 		"Type '/help' for more information\n"
-		"-----------------------------------------------------");
+		"-----------------------------------------------------"
+	);
+
+	try {
+		InitConfigPath();
+	}
+	catch (std::exception e) {
+		spdlog::error(e.what());
+		system("pause");
+		exit(1);
+	}
+
+	try {
+		LoadConfigFile();
+	}
+	catch (std::exception e) {
+		spdlog::error(e.what());
+		if (!PromptYN("Continue anyway?", false)) exit(1);
+	}
 
 	// TODO: Use ModEngine2's infrastructure for registering hooks once it's more usable. See
 	// https://github.com/soulsmods/ModEngine2/issues/156.
@@ -89,6 +159,52 @@ void CCore::on_attach() {
 
 void CCore::on_detach() {
 	// Do nothing; this function is never called.
+}
+
+void CCore::Connect()
+{
+	std::string url;
+	bool savePassword = false;
+
+	bool promptForUrlAndSlot = true;
+	if (configData.contains("url") && configData.contains("slot")) {
+		configData.at("url").get_to(url);
+		configData.at("slot").get_to(pSlotName);
+		promptForUrlAndSlot = !PromptYN("Reconnect to " + url + " as " + pSlotName + "?");
+		if (!promptForUrlAndSlot && configData.contains("password")) {
+			configData.at("password").get_to(pPassword);
+			savePassword = true;
+		}
+	}
+
+	if (promptForUrlAndSlot) {
+		url = configData.contains("url")
+			? PromptString("Room URL", configData["url"])
+			: PromptString("Room URL (like archipelago.gg:12345)");
+		pSlotName = configData.contains("slot")
+			? PromptString("Player name", configData["slot"])
+			: PromptString("Player name");
+
+		std::string oldPassword = configData.value("password", "");
+		pPassword = oldPassword.size() > 0
+			? PromptStringHideDefault("Password", oldPassword)
+			: PromptString("Password (default none)");
+		savePassword = pPassword.length() > 0 &&
+			(pPassword == oldPassword || PromptYN("Save password?"));
+	}
+
+	if (!ArchipelagoInterface->Initialise(url)) {
+		Panic("Failed to initialise Archipelago", "", AP_InitFailed, 1);
+		int3
+	}
+
+	configData["url"] = url;
+	configData["slot"] = pSlotName;
+	if (savePassword && pPassword.length() > 0) {
+		configData["password"] = pPassword;
+	} else {
+		configData.erase("password");
+	}
 }
 
 void CCore::WriteAtomic(const std::filesystem::path& path, const std::string& contents)
@@ -126,6 +242,42 @@ void CCore::WriteAtomic(const std::filesystem::path& path, const std::string& co
 	else {
 		throw std::runtime_error("Failed to write to " + path.string() + ".");
 	}
+}
+
+bool CCore::PromptYN(std::string message, bool defaultResponse)
+{
+	std::cout << message << " [" << (defaultResponse ? "Y" : "y") << "/"
+		<< (defaultResponse ? "n" : "N") << "] ";
+	wint_t response = _getwch();
+	if (response != WEOF) std::wcout << (wchar_t)response;
+	std::cout << std::endl;
+	return defaultResponse
+		? (response != 'n' && response != 'N')
+		: (response == 'y' || response == 'Y');
+}
+
+std::string CCore::PromptString(std::string prompt)
+{
+	std::cout << prompt << ": ";
+	std::string response;
+	std::getline(std::cin, response);
+	return response;
+}
+
+std::string CCore::PromptString(std::string prompt, std::string defaultValue)
+{
+	std::cout << prompt << " (default " << defaultValue << "): ";
+	std::string response;
+	std::getline(std::cin, response);
+	return response.size() == 0 ? defaultValue : response;
+}
+
+std::string CCore::PromptStringHideDefault(std::string prompt, std::string defaultValue)
+{
+	std::cout << prompt << " (default ******): ";
+	std::string response;
+	std::getline(std::cin, response);
+	return response.size() == 0 ? defaultValue : response;
 }
 
 std::optional<std::string> CCore::GetLastWin32ErrorText()
@@ -173,6 +325,7 @@ VOID CCore::Run() {
 		GameHook->updateRuntimeValues();
 
 		if (!isInit && ArchipelagoInterface->isConnected() && initProtectionDelay <= 0) {
+			WriteConfigFile();
 			LoadSaveFile();
 			SkipAlreadyReceivedItems();
 
@@ -273,6 +426,8 @@ VOID CCore::Panic(const char* pMessage, const char* pSort, DWORD dError, DWORD d
 
 
 VOID CCore::InputCommand() {
+	Core->Connect();
+
 	while (true) {
 		std::string line;
 		std::getline(std::cin, line);
@@ -282,7 +437,6 @@ VOID CCore::InputCommand() {
 				"List of available commands : \n"
 				"/help : Prints this help message.\n"
 				"!help : Prints the help message related to Archipelago.\n"
-				"/connect {SERVER_IP}:{SERVER_PORT} {SLOT_NAME} [password:{PASSWORD}] : Connect to the specified server.\n"
 				"/debug on|off : Prints additional debug info");
 		}
 
@@ -321,34 +475,52 @@ VOID CCore::InputCommand() {
 
 			
 		}
-		else if (line.find("/connect ") == 0) {
-			std::string param = line.substr(9);
-			int spaceIndex = param.find(" ");
-			if (spaceIndex == std::string::npos) {
-				spdlog::warn("Missing parameter: make sure to type '/connect {SERVER_IP}:{SERVER_PORT} {SLOT_NAME} [password:{PASSWORD}]'");
-			} else {
-				int passwordIndex = param.find("password:");
-				std::string address = param.substr(0, spaceIndex);
-				std::string slotName = param.substr(spaceIndex + 1, passwordIndex - spaceIndex - 2);
-				std::string password = "";
-				std::cout << address << " - " << slotName << "\n";
-				Core->pSlotName = slotName;
-				if (passwordIndex != std::string::npos)
-				{
-					password = param.substr(passwordIndex + 9);
-				}
-				Core->pPassword = password;
-				if (!ArchipelagoInterface->Initialise(address)) {
-					Core->Panic("Failed to initialise Archipelago", "", AP_InitFailed, 1);
-					int3
-				}
-			}
-		}
 		else if (line.find("!") == 0) {
 			ArchipelagoInterface->say(line);
 		}
 	}
 };
+
+void CCore::LoadConfigFile() {
+	std::ifstream gameFile{ WindowsLongPath(configPath) };
+	if (!gameFile.good()) {
+		throw std::runtime_error(
+			"Couldn't read " + configPath.string() + " (" +
+			strerror(errno) + "). Run the static randomizer (randomizer\\DS3Randomizer.exe) "
+			"before launching DS3."
+		);
+	}
+
+	spdlog::debug("Reading {}", configPath.string());
+
+	try {
+		gameFile >> configData;
+		if (configData.contains("version") && configData["version"].get<std::string>() != VERSION)
+		{
+			throw std::runtime_error(
+				"This save was generated using static randomizer v" +
+				configData["version"].get<std::string>() + ", but this client is v" VERSION ". "
+				"Re-run the static randomizer with the current version."
+			);
+		}
+	}
+	catch (const std::exception& error) {
+		throw std::runtime_error(
+			"Failed to read " + configPath.filename().string() + ": " + error.what() + "\n"
+			"If you continue, you'll receive all foreign items again."
+		);
+	}
+};
+
+VOID CCore::WriteConfigFile() {
+	try {
+		spdlog::debug("Writing to {}", configPath.string());
+		WriteAtomic(configPath, configData.dump());
+	}
+	catch (const std::exception& error) {
+		spdlog::warn("Failed to save config: {}", error.what());
+	}
+}
 
 void CCore::LoadSaveFile() {
 	std::ifstream gameFile{ WindowsLongPath(savePath) };
