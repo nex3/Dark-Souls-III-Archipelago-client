@@ -1,3 +1,9 @@
+## 3.0.6
+
+* Fix a bug where the static randomizer could crash when placing a foreign item with a very long name whose player had a very short name.
+
+* Fix a bug where, if some but not all items in a given lot were randomized, the unrandomized items would never be awarded.
+
 ## 3.0.5
 
 * Overhaul the way the player logs in through the console window. Rather than needing to type in the full room URL and slot name every time, the static randomizer will now write an `apconfig.json` file with the player's room URL, slot name, and optionally password. The player will then be prompted to re-use this upon starting the client, and only have to retype the information if they need to update it.
