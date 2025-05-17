@@ -1,3 +1,7 @@
+## 3.0.7
+
+* Fix a bug where, if all the items in a given lot *were* randomized, only one would be awarded.
+
 ## 3.0.6
 
 * Fix a bug where the static randomizer could crash when placing a foreign item with a very long name whose player had a very short name.
