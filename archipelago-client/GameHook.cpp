@@ -40,8 +40,8 @@ struct SEquipBuffer {
 
 // A singleton object used by DS3 code involving items.
 LPVOID* mapItemMan =
-	ResolveMov(FindPattern("MapItemMan", "48 8B 0D ?? ?? ?? ?? BB ?? ?? ?? ?? 41 BC"))
-	.as<LPVOID*>();
+ResolveMov(FindPattern("MapItemMan", "48 8B 0D ?? ?? ?? ?? BB ?? ?? ?? ?? 41 BC"))
+.as<LPVOID*>();
 
 // The underlying function that passes items to the player. We use this both to give items from
 // Archipelago and to hook into to inspect items the player picks up.
@@ -75,7 +75,7 @@ GameDataMan* GameDataMan::instance() {
 			"GameDataMan",
 			"48 8B 05 ?? ?? ?? ?? 48 85 C0 ?? ?? 48 8B 40 ?? C3"
 		)).as<GameDataMan**>();
-	}();
+		}();
 	return *static_address;
 }
 
@@ -101,15 +101,25 @@ BOOL CGameHook::initialize() {
 		"0f 10 00 0f 29 44 24 50 0f 10 48 10 0f 29 4c 24 60 0f 10 40 20 0f 29 44 24 70 0f 10 48 "
 		"30 0f 29 8c 24 80 00 00 00",
 		-0x60);
-	
+
 	auto onWorldUnloadedAddress = FindPattern(
 		"OnWorldUnloaded",
 		"48 8b 35 ?? ?? ?? ?? 33 ed 48 8b f9 48 85 f6 74 27",
 		-0x14);
 
+	auto serializeEquipGameDataAddress = FindPattern(
+		"EquipGameData::Serialize",
+		"48 8b d9 41 b8 58 00 00 00 48 8b ?? ff 50 18 48 83 f8 58",
+		-0x14);
+
+	auto deserializeEquipGameDataAddress = FindPattern(
+		"EquipGameData::Deserialize",
+		"41 b8 58 00 00 00 48 8b ?? ff 50 18 83 f8 58",
+		-0x17);
+
 	try {
 		return SimpleHook((LPVOID)fItemGib, (LPVOID)&CItemRandomiser::HookedItemGib,
-				(LPVOID*)&ItemRandomiser->ItemGibOriginal)
+			(LPVOID*)&ItemRandomiser->ItemGibOriginal)
 			&& SimpleHook(onGetitemAddress.as<LPVOID>(), (LPVOID)&CItemRandomiser::HookedOnGetItem,
 				(LPVOID*)&ItemRandomiser->OnGetItemOriginal)
 			&& SimpleHook(getActionEventInfoFmgAddress.as<LPVOID>(), (LPVOID)&HookedGetActionEventInfoFmg,
@@ -117,8 +127,15 @@ BOOL CGameHook::initialize() {
 			&& SimpleHook(onWorldLoadedAddress.as<LPVOID>(), (LPVOID)&HookedOnWorldLoaded,
 				(LPVOID*)&GameHook->OnWorldLoadedOriginal)
 			&& SimpleHook(onWorldUnloadedAddress.as<LPVOID>(), (LPVOID)&HookedOnWorldUnloaded,
-				(LPVOID*)&GameHook->OnWorldUnloadedOriginal);
-	} catch (const std::exception&) {
+				(LPVOID*)&GameHook->OnWorldUnloadedOriginal)
+			&& SimpleHook(serializeEquipGameDataAddress.as<LPVOID>(),
+				(LPVOID)&HookedSerializeEquipGameData,
+				(LPVOID*)&GameHook->SerializeEquipGameDataOriginal)
+			&& SimpleHook(deserializeEquipGameDataAddress.as<LPVOID>(),
+				(LPVOID)&HookedDeserializeEquipGameData,
+				(LPVOID*)&GameHook->DeserializeEquipGameDataOriginal);
+	}
+	catch (const std::exception&) {
 		spdlog::error("Cannot hook the game");
 	}
 	return false;
@@ -152,7 +169,7 @@ BOOL CGameHook::applySettings() {
 
 VOID CGameHook::manageDeathLink() {
 
-	
+
 	if (lastHealthPoint == 0 && healthPoint != 0) {	//The player just respawned
 		deathLinkData = false;
 	} else if (deathLinkData && lastHealthPoint != 0 && healthPoint != 0 ) { //The player received a deathLink
@@ -291,7 +308,7 @@ VOID CGameHook::showBanner(std::string message) {
 VOID CGameHook::setEventFlag(DWORD eventId, BOOL enabled) {
 	static auto fSetEventFlag =
 		FindPattern("fSetEventFlag", "8b da 45 84 c0 74 ?? 48 85 c9 75", -0xD)
-			.as<void (*)(UINT_PTR unused, DWORD event, BOOL state)>();
+		.as<void (*)(UINT_PTR unused, DWORD event, BOOL state)>();
 
 	fSetEventFlag(NULL, eventId, enabled);
 }
@@ -334,9 +351,113 @@ LPVOID CGameHook::HookedOnWorldLoaded(ULONGLONG unknown1, ULONGLONG unknown2, DW
 }
 
 void CGameHook::HookedOnWorldUnloaded(ULONGLONG unknown1, ULONGLONG unknown2, ULONGLONG unknown3,
-		ULONGLONG unknown4) {
+	ULONGLONG unknown4) {
 	GameHook->isWorldLoaded = false;
 	GameHook->OnWorldUnloadedOriginal(unknown1, unknown2, unknown3, unknown4);
+}
+
+boolean CGameHook::HookedSerializeEquipGameData(EquipGameData* self, DLMemoryOutputStream* stream)
+{
+	// Don't modify the fake home screen game data, since all the information we're adding is intended
+	// to be save-specific.
+	if (EquipGameData_IsFakeHomeScreenGame(self)) {
+		return GameHook->SerializeEquipGameDataOriginal(self, stream);
+	}
+
+	size_t bytesWritten;
+
+	// Write a dedicated header so we can ensure that we're not trying to load a save from before
+	// this mod started writing to save data.
+	bytesWritten = stream->vtable->write(stream, "archi", sizeof "archi" - 1);
+	if (bytesWritten != sizeof "archi" - 1) return false;
+
+	auto result = GameHook->SerializeEquipGameDataOriginal(self, stream);
+	if (!result) return false;
+
+	// Write the current version number so that future versions of the archipelago mod can make
+	// changes to the save format and remain backwards-compatible with older versions, or at least
+	// produce a useful error message.
+	SerializeString(stream, VERSION);
+
+	SerializeString(stream, Core->pSeed.value_or(""));
+
+	bytesWritten = stream->vtable->write(
+		stream, &Core->pLastReceivedIndex, sizeof Core->pLastReceivedIndex);
+	return bytesWritten == sizeof Core->pLastReceivedIndex;
+}
+
+boolean CGameHook::HookedDeserializeEquipGameData(EquipGameData* self, DLMemoryInputStream* stream)
+{
+	size_t bytesRead;
+
+	std::string header(sizeof "archi" - 1, '\0');
+	bytesRead = stream->vtable->read(stream, header.data(), header.size());
+	if (bytesRead != header.size()) return false;
+
+	if (header != "archi") {
+		// If this save file doesn't include Archipelago metadata, fall back on the normal save
+		// loader. We can't just throw an error here because DS3 loads some sort of save on boot,
+		// which will initially never have Archipelago metadata attached.
+		stream->position -= header.size();
+		auto result = GameHook->DeserializeEquipGameDataOriginal(self, stream);
+		if (!result) return false;
+
+		// If we load a game without Archipelago metadata, show a warning to the user because it's
+		// likely to be the wrong save. Note that fresh saves don't actually go through a load.
+		if (!EquipGameData_IsFakeHomeScreenGame(self)) {
+			auto result = MessageBox(
+				NULL,
+				"This save has never connected to Archipelago before! Are you sure you want to "
+				"load it?",
+				"Non-Archipelago Save",
+				MB_OKCANCEL | MB_ICONERROR
+			);
+			if (result != IDOK) exit(1);
+		}
+		return true;
+	}
+
+	auto result = GameHook->DeserializeEquipGameDataOriginal(self, stream);
+	if (!result) return false;
+
+	// Ignore the version string for now, since the only versions that include save data use the
+	// same format.
+	if (!DeserializeString(stream).has_value()) return false;
+
+	auto seed = DeserializeString(stream);
+	if (!seed.has_value()) return false;
+	if (seed.value().size() > 0) Core->SetSeed(seed.value(), true /* fromSave */);
+
+	bytesRead = stream->vtable->read(
+		stream, &Core->pLastReceivedIndex, sizeof Core->pLastReceivedIndex);
+	return bytesRead == sizeof Core->pLastReceivedIndex;
+}
+
+boolean CGameHook::SerializeString(DLMemoryOutputStream* stream, std::string string)
+{
+	size_t bytesWritten;
+
+	size_t length = string.size();
+	bytesWritten = stream->vtable->write(stream, &length, sizeof length);
+	if (bytesWritten != sizeof length) return false;
+
+	stream->vtable->write(stream, string.data(), length);
+	return bytesWritten == length;
+}
+
+std::optional<std::string> CGameHook::DeserializeString(DLMemoryInputStream* stream)
+{
+	size_t bytesRead;
+
+	size_t length;
+	bytesRead = stream->vtable->read(stream, &length, sizeof length);
+	if (bytesRead != sizeof length) return {};
+
+	std::string result(length, '\0');
+	bytesRead = stream->vtable->read(stream, result.data(), length);
+	if (bytesRead != length) return {};
+
+	return result;
 }
 
 mem::pointer FindPattern(const char* name, const char* pattern, ptrdiff_t offset) {
@@ -348,10 +469,10 @@ mem::pointer FindPattern(const char* name, const char* pattern, ptrdiff_t offset
 		scanner(range, [&](mem::pointer address) {
 			result = address.offset(offset);
 			return (bool)result;
-		});
+			});
 
 		return (bool)result;
-	});
+		});
 
 	if (!result) {
 		Core->Panic(

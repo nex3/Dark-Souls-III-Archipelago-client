@@ -82,7 +82,10 @@ void CCore::InitSavePath()
 {
 	// We keep the save path relative to the current working directory, since we want the saved
 	// data to remain consistent even if the player upgrades to a new AP patch version.
-	std::filesystem::path baseName(Core->pSeed + "_" + Core->pSlotName + ".json");
+	//
+	// It's safe to call pSeed.value here because this is only ever called after initializing the
+	// seed in ArchipelagoInterface.
+	std::filesystem::path baseName(Core->pSeed.value() + "_" + Core->pSlotName + ".json");
 	if (CreateDirectoryW(WindowsLongPath("archipelago").c_str(), NULL) ||
 			ERROR_ALREADY_EXISTS == GetLastError()) {
 		savePath = std::filesystem::path("archipelago\\" + baseName.string());
@@ -90,6 +93,24 @@ void CCore::InitSavePath()
 	else {
 		savePath = baseName;
 	}
+}
+
+void CCore::SetSeed(std::string seed, bool fromSave)
+{
+	if (pSeed.has_value() && pSeed != seed) {
+		auto message = "You've connected to a different Archipelago multiworld than the one that "
+			"you used before with this save!\n"
+			"\n"
+			"Save file seed: " + (fromSave ? seed : pSeed.value()) + "\n"
+			"Connected room seed: " + (fromSave ? pSeed.value() : seed) + "\n"
+			"\n"
+			"Continue connecting and overwrite the save file seed?";
+		auto result = MessageBox(
+			NULL, message.c_str(), "Archipelago Mismatch", MB_OKCANCEL | MB_ICONERROR);
+		if (result != IDOK) exit(1);
+	}
+
+	pSeed = seed;
 }
 
 void CCore::on_attach() {
@@ -324,9 +345,11 @@ VOID CCore::Run() {
 	if (GameHook->isEverythingLoaded()) {
 		GameHook->updateRuntimeValues();
 
-		if (!isInit && ArchipelagoInterface->isConnected() && initProtectionDelay <= 0) {
+		if (!isInit && connected && initProtectionDelay <= 0) {
 			WriteConfigFile();
+
 			LoadSaveFile();
+
 			SkipAlreadyReceivedItems();
 
 			//Apply player settings
@@ -337,6 +360,9 @@ VOID CCore::Run() {
 			}
 			spdlog::info("Mod initialized successfully");
 			GameHook->showBanner(L"Archipelago connected");
+
+			ItemRandomiser->sendMissedItems();
+
 			isInit = true;
 		}
 
@@ -358,8 +384,6 @@ VOID CCore::Run() {
 			initProtectionDelay--;
 		}
 	}
-
-	WriteSaveFile();
 
 	return;
 };
@@ -546,22 +570,6 @@ void CCore::LoadSaveFile() {
 		);
 	}
 };
-
-VOID CCore::WriteSaveFile() {
-	if (!writeSaveFileNextTick) return;
-	writeSaveFileNextTick = false;
-
-	json j;
-	j["last_received_index"] = pLastReceivedIndex;
-
-	try {
-		spdlog::debug("Writing to {}", savePath.string());
-		WriteAtomic(savePath, j.dump());
-	}
-	catch (const std::exception& error) {
-		spdlog::warn("Failed to save config: {}", error.what());
-	}
-}
 
 // Entrypoint called by ModEngine2 to initialize this extension.
 bool modengine_ext_init(modengine::ModEngineExtensionConnector* connector,

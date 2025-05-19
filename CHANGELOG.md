@@ -1,3 +1,11 @@
+## 3.0.8
+
+* Use _Dark Souls III_'s save data to store per-save Archipelago data. This allows us to ask the user for confirmation before loading a save that doesn't match the room they're connected to.
+
+  **Please note:** If you upgrade to 3.0.8 or later and then load an existing save, you'll see a warning that it's not an Archipelago save even if it was created with an older version of Archipelago. It's safe to click through this warning, and once you do it won't show up again.
+
+* Fix a bug where unsent foreign items in DS3 wouldn't get sent on restart if the player connected to the server before loading the game.
+
 ## 3.0.7
 
 * Fix a bug where, if all the items in a given lot *were* randomized, only one would be awarded.

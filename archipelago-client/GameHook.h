@@ -72,6 +72,21 @@ private:
 	static void HookedOnWorldUnloaded(ULONGLONG unknown1, ULONGLONG unknown2, ULONGLONG unknown3,
 		ULONGLONG unknown4);
 
+	// A hooked function that's run when the player's game is saved and writes some additional data
+	// to the save file.
+	static boolean HookedSerializeEquipGameData(EquipGameData* self, DLMemoryOutputStream* stream);
+
+	// A hooked function that's run when the player's game is loaded and reads some additional data
+	// from the save file.
+	static boolean HookedDeserializeEquipGameData(
+		EquipGameData* self, DLMemoryInputStream* stream);
+
+	// Writes a length-delimited string to the given output stream.
+	static boolean SerializeString(DLMemoryOutputStream* stream, std::string string);
+
+	// Reads a length-delimited string from the given output stream.
+	static std::optional<std::string> DeserializeString(DLMemoryInputStream* stream);
+
 	// The internal DS3 function that looks up the current localization's message for the given ID. We
 	// override this to support custom messages with custom IDs.
 	decltype(&HookedGetActionEventInfoFmg) GetActionEventInfoFmgOriginal;
@@ -83,7 +98,13 @@ private:
 	// The deallocator dual of OnWorldLoadedOriginal. Once this runs, it's no longer safe to make
 	// in-game changes.
 	decltype(&HookedOnWorldUnloaded) OnWorldUnloadedOriginal;
-	
+
+	// The function that writes an EquipGameData to a data stream to save it.
+	decltype(&HookedSerializeEquipGameData) SerializeEquipGameDataOriginal;
+
+	// The function that reads an EquipGameData from a data stream to loadit.
+	decltype(&HookedDeserializeEquipGameData) DeserializeEquipGameDataOriginal;
+
 	uintptr_t BaseB = -1;
 	uintptr_t GameFlagData = -1;
 	uintptr_t Param = -1;

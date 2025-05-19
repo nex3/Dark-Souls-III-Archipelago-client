@@ -58,7 +58,6 @@ BOOL CArchipelago::Initialise(std::string URI) {
 			ItemRandomiser->pItemCounts[std::stol(it->first)] = it->second;
 		}
 		
-		data.at("seed").get_to(Core->pSeed);
 		data.at("slot").get_to(Core->pSlotName);
 
 		if (data.contains("options")) {
@@ -74,9 +73,9 @@ BOOL CArchipelago::Initialise(std::string URI) {
 			ap->ConnectUpdate(false, 1, true, tags);
 		}
 
+		Core->SetSeed(data.at("seed"), false /* fromSave */);
 		Core->InitSavePath();
 		Core->connected = true;
-		ItemRandomiser->sendMissedItems();
 
 		});
 	ap->set_slot_disconnected_handler([]() {
