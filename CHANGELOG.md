@@ -1,3 +1,9 @@
+## 3.0.9
+
+* Have error pop-ups default to the "Cancel" button instead of "OK", so players default to not breaking their saves.
+
+* Display error pop-ups over the fullscreen game.
+
 ## 3.0.8
 
 * Use _Dark Souls III_'s save data to store per-save Archipelago data. This allows us to ask the user for confirmation before loading a save that doesn't match the room they're connected to.

@@ -410,7 +410,7 @@ boolean CGameHook::HookedDeserializeEquipGameData(EquipGameData* self, DLMemoryI
 				"This save has never connected to Archipelago before! Are you sure you want to "
 				"load it?",
 				"Non-Archipelago Save",
-				MB_OKCANCEL | MB_ICONERROR
+				MB_OKCANCEL | MB_ICONERROR | MB_DEFBUTTON2 | MB_SYSTEMMODAL
 			);
 			if (result != IDOK) exit(1);
 		}

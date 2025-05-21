@@ -106,7 +106,11 @@ void CCore::SetSeed(std::string seed, bool fromSave)
 			"\n"
 			"Continue connecting and overwrite the save file seed?";
 		auto result = MessageBox(
-			NULL, message.c_str(), "Archipelago Mismatch", MB_OKCANCEL | MB_ICONERROR);
+			NULL,
+			message.c_str(),
+			"Archipelago Mismatch",
+			MB_OKCANCEL | MB_ICONERROR | MB_DEFBUTTON2 | MB_SYSTEMMODAL
+		);
 		if (result != IDOK) exit(1);
 	}
 
