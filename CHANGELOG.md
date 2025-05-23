@@ -1,5 +1,7 @@
 ## 3.0.9
 
+* Delete the old-style save file so Archipelago doesn't keep reloading it every startup.
+
 * Have error pop-ups default to the "Cancel" button instead of "OK", so players default to not breaking their saves.
 
 * Display error pop-ups over the fullscreen game.

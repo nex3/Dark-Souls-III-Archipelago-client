@@ -573,6 +573,9 @@ void CCore::LoadSaveFile() {
 			error.what()
 		);
 	}
+
+	spdlog::debug("Deleting {}", savePath.string());
+	DeleteFileW(WindowsLongPath(savePath).c_str());
 };
 
 // Entrypoint called by ModEngine2 to initialize this extension.
