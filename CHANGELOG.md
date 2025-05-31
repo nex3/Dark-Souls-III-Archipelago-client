@@ -1,3 +1,7 @@
+## 3.0.10
+
+* Update the expected Archipelago version number to 0.6.1.
+
 ## 3.0.9
 
 * Delete the old-style save file so Archipelago doesn't keep reloading it every startup.
