@@ -1,5 +1,9 @@
 ## 3.0.10
 
+* Fix an issue where disconnecting and reconnecting to the server during a play session could cause all items to be re-delivered, possibly multiple times.
+
+* Print a warning when deleting the old JSON save file fails.
+
 * Update the expected Archipelago version number to 0.6.1.
 
 ## 3.0.9

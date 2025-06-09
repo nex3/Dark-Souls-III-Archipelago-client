@@ -36,6 +36,7 @@ BOOL CArchipelago::Initialise(std::string URI) {
 	ap->set_socket_connected_handler([]() {
 		});
 	ap->set_socket_disconnected_handler([]() {
+		Core->connected = false;
 		});
 	ap->set_slot_connected_handler([](const json& data) {
 		spdlog::info("Slot connected successfully, reading slot data ... ");

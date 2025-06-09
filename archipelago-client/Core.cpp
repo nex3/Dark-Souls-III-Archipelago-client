@@ -371,6 +371,18 @@ VOID CCore::Run() {
 		}
 
 		if (isInit) {
+			if (!connected) {
+				// It's important to re-run the initializer code when we reload
+				// because we'll get sent all the items again as though we just
+				// connected.
+				isInit = false;
+				// To the same end, get rid of any remaining items that haven't
+				// yet been delivered, so that a quick reconnection doesn't
+				// duplicate them.
+				ItemRandomiser->receivedItemsQueue.clear();
+				return;
+			}
+
 			GameHook->manageDeathLink();
 
 			if (!ItemRandomiser->receivedItemsQueue.empty()) {
@@ -575,7 +587,14 @@ void CCore::LoadSaveFile() {
 	}
 
 	spdlog::debug("Deleting {}", savePath.string());
-	DeleteFileW(WindowsLongPath(savePath).c_str());
+	if (!DeleteFileW(WindowsLongPath(savePath).c_str())) {
+		auto text = GetLastWin32ErrorText();
+		spdlog::warn(
+			text.has_value()
+			? "Could not delete " + savePath.string() + ": " + text.value()
+			: "Could not delete " + savePath.string() + "."
+		);
+	}
 };
 
 // Entrypoint called by ModEngine2 to initialize this extension.
