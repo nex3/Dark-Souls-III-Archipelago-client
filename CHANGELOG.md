@@ -1,3 +1,7 @@
+## 3.0.11
+
+* Update the version of the Archipelago library used by the static randomizer.
+
 ## 3.0.10
 
 * Fix an issue where disconnecting and reconnecting to the server during a play session could cause all items to be re-delivered, possibly multiple times.
