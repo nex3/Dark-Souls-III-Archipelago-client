@@ -1,3 +1,7 @@
+## 3.0.12
+
+* Update the expected version number sent by the static randomizer to the Archipelago server. This should make the randomizer compatible with Archipelago 0.6.2.
+
 ## 3.0.11
 
 * Update the version of the Archipelago library used by the static randomizer.
